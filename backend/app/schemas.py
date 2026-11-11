@@ -88,3 +88,30 @@ class BalanceOut(BaseModel):
 class BalancesOut(BaseModel):
     group_id: int
     balances: list[BalanceOut]
+
+
+class SettlementOut(BaseModel):
+    from_user: str
+    to_user: str
+    amount: MoneyOut
+
+
+class SettleUpOut(BaseModel):
+    group_id: int
+    payments: list[SettlementOut]
+
+
+class PaymentCreate(StrictModel):
+    from_user: Username
+    to_user: Username
+    amount: MoneyIn
+
+
+class PaymentOut(BaseModel):
+    id: int
+    group_id: int
+    from_user: str
+    to_user: str
+    amount: MoneyOut
+    created_by: str
+    created_at: datetime

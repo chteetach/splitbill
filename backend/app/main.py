@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.errors import AppError, error_body
-from app.routers import expenses, groups, users
+from app.routers import expenses, groups, payments, users
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(groups.router)
     app.include_router(expenses.router)
+    app.include_router(payments.router)
 
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:

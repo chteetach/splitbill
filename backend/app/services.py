@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app import repositories as repo
 from app.errors import Conflict, Forbidden, NotFound, ValidationFailed
-from app.models import Expense, Group, User
+from app.models import Expense, Group, Payment, User
 from app.money import ZERO, allocate_equal
 from app.schemas import EqualSplitIn, ExactSplitIn, ExpenseCreate
 
@@ -130,11 +130,81 @@ def delete_expense(db: Session, group: Group, user: User, expense_id: int) -> No
 
 
 def group_balances(db: Session, group: Group) -> list[tuple[str, Decimal]]:
-    """Net balance per member: paid minus owed. Positive means the member is owed money."""
+    """Net balance per member. Positive means the member is owed money.
+
+    balance = paid for expenses - share of expenses + repayments sent - repayments received
+    """
     paid = repo.paid_totals(db, group.id)
     owed = repo.share_totals(db, group.id)
-    balances = [(m.username, paid.get(m.id, ZERO) - owed.get(m.id, ZERO)) for m in group.members]
+    sent, received = repo.payment_totals(db, group.id)
+    balances = [
+        (
+            m.username,
+            paid.get(m.id, ZERO)
+            - owed.get(m.id, ZERO)
+            + sent.get(m.id, ZERO)
+            - received.get(m.id, ZERO),
+        )
+        for m in group.members
+    ]
     # Every expense's shares sum to its amount, so this can only fail if the data is corrupt.
     if sum((b for _, b in balances), ZERO) != ZERO:
         raise RuntimeError(f"Balances for group {group.id} do not sum to zero")
     return balances
+
+
+def settle_up(balances: list[tuple[str, Decimal]]) -> list[tuple[str, str, Decimal]]:
+    """Suggest (payer, payee, amount) transfers that bring every balance to zero.
+
+    Greedy: repeatedly match the largest debtor with the largest creditor. Each step settles at
+    least one member in full, so it needs at most n - 1 payments. Finding the true minimum is
+    NP-hard in general (it means partitioning members into the most zero-sum subgroups); for the
+    small groups this app deals with greedy is optimal in the common cases and never worse
+    than n - 1. Ties are broken by username so the output is deterministic.
+    """
+    creditors = sorted(((b, u) for u, b in balances if b > 0), key=lambda x: (-x[0], x[1]))
+    debtors = sorted(((-b, u) for u, b in balances if b < 0), key=lambda x: (-x[0], x[1]))
+    payments: list[tuple[str, str, Decimal]] = []
+    while creditors and debtors:
+        credit, creditor = creditors[0]
+        debt, debtor = debtors[0]
+        amount = min(credit, debt)
+        payments.append((debtor, creditor, amount))
+        creditors = _resort(creditors, credit - amount)
+        debtors = _resort(debtors, debt - amount)
+    return payments
+
+
+def _resort(entries: list[tuple[Decimal, str]], remaining: Decimal) -> list[tuple[Decimal, str]]:
+    rest = entries[1:]
+    if remaining > 0:
+        rest.append((remaining, entries[0][1]))
+    return sorted(rest, key=lambda x: (-x[0], x[1]))
+
+
+def record_payment(
+    db: Session, group: Group, user: User, from_username: str, to_username: str, amount: Decimal
+) -> Payment:
+    members = {m.username: m for m in group.members}
+    outsiders = list(dict.fromkeys(n for n in (from_username, to_username) if n not in members))
+    if outsiders:
+        raise ValidationFailed(
+            f"Not a member of this group: {', '.join(outsiders)}",
+            code="not_group_member",
+            details={"users": outsiders},
+        )
+    if from_username == to_username:
+        raise ValidationFailed("A member cannot repay themselves", code="same_user")
+    payment = repo.add_payment(
+        db,
+        Payment(
+            group_id=group.id,
+            from_user_id=members[from_username].id,
+            to_user_id=members[to_username].id,
+            amount=amount,
+            created_by_id=user.id,
+        ),
+    )
+    db.commit()
+    db.refresh(payment)
+    return payment

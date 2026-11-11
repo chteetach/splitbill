@@ -47,7 +47,7 @@ def migrated_database() -> Iterator[None]:
 def clean_expenses() -> Iterator[None]:
     yield
     with get_engine().begin() as conn:
-        conn.execute(text("TRUNCATE expense_shares, expenses RESTART IDENTITY CASCADE"))
+        conn.execute(text("TRUNCATE expense_shares, expenses, payments RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture

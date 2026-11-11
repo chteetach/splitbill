@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import Expense, ExpenseShare, Group, GroupMember, User
+from app.models import Expense, ExpenseShare, Group, GroupMember, Payment, User
 
 
 def get_user_by_username(db: Session, username: str) -> User | None:
@@ -107,3 +107,32 @@ def share_totals(db: Session, group_id: int) -> dict[int, Decimal]:
         .group_by(ExpenseShare.user_id)
     ).all()
     return {user_id: total for user_id, total in rows}
+
+
+def add_payment(db: Session, payment: Payment) -> Payment:
+    db.add(payment)
+    db.flush()
+    return payment
+
+
+def list_payments(db: Session, group_id: int) -> Sequence[Payment]:
+    return db.scalars(
+        select(Payment)
+        .where(Payment.group_id == group_id)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+    ).all()
+
+
+def payment_totals(db: Session, group_id: int) -> tuple[dict[int, Decimal], dict[int, Decimal]]:
+    """(total sent by each user, total received by each user) in repayments."""
+    sent = db.execute(
+        select(Payment.from_user_id, func.sum(Payment.amount))
+        .where(Payment.group_id == group_id)
+        .group_by(Payment.from_user_id)
+    ).all()
+    received = db.execute(
+        select(Payment.to_user_id, func.sum(Payment.amount))
+        .where(Payment.group_id == group_id)
+        .group_by(Payment.to_user_id)
+    ).all()
+    return dict(sent), dict(received)

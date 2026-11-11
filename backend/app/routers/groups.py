@@ -3,7 +3,14 @@ from fastapi import APIRouter
 from app import repositories as repo
 from app import services
 from app.deps import CurrentUser, DbSession, MemberGroup
-from app.schemas import BalanceOut, BalancesOut, GroupOut, GroupSummaryOut
+from app.schemas import (
+    BalanceOut,
+    BalancesOut,
+    GroupOut,
+    GroupSummaryOut,
+    SettlementOut,
+    SettleUpOut,
+)
 
 router = APIRouter(tags=["groups"])
 
@@ -25,4 +32,13 @@ def get_balances(db: DbSession, group: MemberGroup) -> BalancesOut:
         balances=[
             BalanceOut(user=name, balance=b) for name, b in services.group_balances(db, group)
         ],
+    )
+
+
+@router.get("/groups/{group_id}/settle-up", response_model=SettleUpOut)
+def get_settle_up(db: DbSession, group: MemberGroup) -> SettleUpOut:
+    suggestions = services.settle_up(services.group_balances(db, group))
+    return SettleUpOut(
+        group_id=group.id,
+        payments=[SettlementOut(from_user=f, to_user=t, amount=a) for f, t, a in suggestions],
     )
