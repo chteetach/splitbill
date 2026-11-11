@@ -69,6 +69,7 @@ class Expense(Base):
     request_fingerprint: Mapped[str | None] = mapped_column(String(64))
 
     paid_by: Mapped[User] = relationship(foreign_keys=[paid_by_id], lazy="joined")
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
     shares: Mapped[list["ExpenseShare"]] = relationship(
         order_by="ExpenseShare.position", lazy="selectin"
     )
