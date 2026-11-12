@@ -7,15 +7,30 @@
   draft of these documents, ran the test suites and linters, and checked the frontend in a
   browser.
 
-_TODO: add any other tools you used, and describe which parts you wrote or rewrote yourself._
+- **VS Code**, used to open the project and run the database, API and frontend together
+  through VS Code tasks (`Tasks: Run Task`).
+
+What I did myself:
+
+- Ran the full stack locally in VS Code and tested the page by hand in the browser.
+- Found two problems that the generated code and its automated checks had missed: the VS Code
+  task failed because PowerShell blocks `npm.ps1` on this machine, and the page showed
+  "Could not reach the server" even though the API was running (item 5 below). I reported both
+  and checked the fixes.
+- Read through the generated documentation and decided what to submit.
 
 ## Effective prompts
 
 1. The starting prompt was simply the brief plus "do the task in this file". This worked
    because the brief is precise: the assistant took the business rules, required tests and
    documentation list directly from it.
-2. _TODO: add a prompt of your own that worked well, for example asking for a specific test
-   or for an explanation of the idempotency design before the interview._
+2. When the page failed, I pasted the exact error text the page showed, with nothing else:
+   "Could not reach the server. Check that the API is running and try again." This worked
+   because the message was specific. Instead of guessing, the assistant checked each part in
+   turn: the database and the API were running and answered requests, so it tested CORS and
+   found that the API only accepted requests from `http://localhost:3000`, not from
+   `http://127.0.0.1:3000`. Pasting real error output, rather than describing it, led straight
+   to the cause.
 
 ## Incorrect or unsafe AI output, and how it was caught
 
@@ -52,6 +67,15 @@ first added so the tests could run without Docker. Its `initdb` failed because t
 contains Thai characters, which the bundled binaries mis-decoded. It was removed from the
 project. The tests instead take an explicit `TEST_DATABASE_URL`, with Docker Compose as the
 one-command path.
+
+**5. A CORS setting too narrow for real use.** The generated config allowed browser requests
+only from `http://localhost:3000`. Every automated check passed, because the tests call the API
+directly and the assistant's own browser check happened to use `localhost`. When I ran the
+app myself, the page showed "Could not reach the server" while the API was up. Sending a
+request with an `Origin: http://127.0.0.1:3000` header confirmed that the API did not return
+an `Access-Control-Allow-Origin` header for that origin, so the browser blocked the response.
+*Fix:* the default and `.env.example` now allow both `localhost` and `127.0.0.1`, verified by
+repeating the same request for both origins.
 
 ## Review process before each commit
 
