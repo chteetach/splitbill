@@ -193,4 +193,9 @@ the common cases and the groups here are small.
 
 ## Time spent
 
-_TODO: fill in before submitting._
+About 2 hours in total, in two sittings:
+
+- About 45 minutes building the backend, tests, frontend and first drafts of the docs with an
+  AI assistant (see `AI_NOTES.md`).
+- About 1 hour running the app locally, testing it by hand (checking shares, leftover satang
+  and balances with a calculator), fixing the problems found and finishing the documentation.
