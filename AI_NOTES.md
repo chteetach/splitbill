@@ -79,7 +79,9 @@ repeating the same request for both origins.
 
 ## Review process before each commit
 
-What was done for every commit in this repository:
+Automated checks run by the assistant while building each part. They were run on each part
+before it was committed, but not separately on every intermediate commit; for example, commit
+`40f6137` imports routers that only arrive in the next commit.
 
 - `uv run ruff check .` and `uv run ruff format --check .` (backend), `npm run lint` and
   `npm run typecheck` (frontend) passed.
@@ -90,6 +92,12 @@ What was done for every commit in this repository:
 - The frontend was used in a browser: the 100.00 / 3 preview, exact-split unallocated amount,
   0.1 + 0.2 = 0.30, adding, deleting and switching users.
 
-_TODO: describe your own review. For example, reading each diff line by line before
-committing, re-deriving the remainder allocation by hand, and being able to explain every file
-in the interview._
+My own review was hands-on rather than line-by-line:
+
+- I ran the app and used it as a user would: picking users and groups, adding expenses with
+  equal and exact splits, and checking the balances.
+- For each expense I worked out the expected numbers with a calculator and compared them with
+  the page: that every share was right, that the leftover satang went to the first members
+  listed, that the shares added up to the total and that the balances summed to 0.00.
+- Anything that did not behave as expected I reported with the exact error text and re-tested
+  after the fix (items 5 and the `npm.ps1` problem above).
